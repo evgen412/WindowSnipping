@@ -498,23 +498,34 @@ SCW_DestroyClipWin(GuiNum, hwnd="") {
 }
 
 SCW_LBUTTONDOWN() {
+	PreviousDpiContext := DllCall("User32\SetThreadDpiAwarenessContext", "Ptr", -3, "Ptr")
 	CoordMode, Mouse, Screen
 	MouseGetPos, MouseStartX, MouseStartY, WinUMID
 	WinGetTitle, Title, ahk_id %WinUMID%
 	if (Title = "ScreenClippingWindow") {
 		WinGetPos, WinStartX, WinStartY,,, ahk_id %WinUMID%
 		GuiNum := SCW_Reg("H" WinUMID "#GuiNum")
+		StartWidth := SCW_Reg("H" WinUMID "#Width")
+		StartHeight := SCW_Reg("H" WinUMID "#Height")
+		BaseDpi := SCW_Reg("H" WinUMID "#BaseDpi")
+		BaseWidth := SCW_Reg("H" WinUMID "#ImageWidth")
+		BaseHeight := SCW_Reg("H" WinUMID "#ImageHeight")
+		; Store the grabbed point within the image, excluding its fixed 3px border.
+		AnchorX := (MouseStartX - WinStartX - 3) / (StartWidth - 6)
+		AnchorY := (MouseStartY - WinStartY - 3) / (StartHeight - 6)
 
 		; Move the layered window ourselves instead of starting the Windows
 		; caption-drag loop. The system loop resizes this AHK GUI when it crosses
 		; onto a monitor with another DPI, while its bitmap surface stays unchanged.
 		while GetKeyState("LButton", "P") {
 			MouseGetPos, MouseX, MouseY
-			NewX := WinStartX + MouseX - MouseStartX
-			NewY := WinStartY + MouseY - MouseStartY
-			CurrentWidth := SCW_Reg("H" WinUMID "#Width")
-			CurrentHeight := SCW_Reg("H" WinUMID "#Height")
-			TargetDpi := SCW_GetDpiAtPoint(NewX + CurrentWidth//2, NewY + CurrentHeight//2)
+			; The cursor chooses the destination monitor, avoiding feedback between
+			; resized window bounds and monitor selection near the display boundary.
+			TargetDpi := SCW_GetDpiAtPoint(MouseX, MouseY)
+			TargetWidth := Round(BaseWidth * TargetDpi / BaseDpi)
+			TargetHeight := Round(BaseHeight * TargetDpi / BaseDpi)
+			NewX := Round(MouseX - 3 - AnchorX * TargetWidth)
+			NewY := Round(MouseY - 3 - AnchorY * TargetHeight)
 			if (TargetDpi != SCW_Reg("H" WinUMID "#Dpi"))
 				SCW_RenderLayeredWin(WinUMID, NewX, NewY, TargetDpi)
 			else
@@ -524,13 +535,16 @@ SCW_LBUTTONDOWN() {
 			Sleep, 10
 		}
 
-		CoordMode, Mouse, Relative
-		MouseGetPos, x,y
+		MouseGetPos, MouseX, MouseY
+		WinGetPos, FinalX, FinalY,,, ahk_id %WinUMID%
+		x := MouseX - FinalX, y := MouseY - FinalY
 		XClose := SCW_Reg("G" GuiNum "#XClose"), YClose := SCW_Reg("G" GuiNum "#YClose")
 		if (x > XClose and y < YClose)
 			SCW_DestroyClipWin(GuiNum, WinUMID)
+		DllCall("User32\SetThreadDpiAwarenessContext", "Ptr", PreviousDpiContext, "Ptr")
 		return 1   ; confirm that click was on module's screen clipping windows
 	}
+	DllCall("User32\SetThreadDpiAwarenessContext", "Ptr", PreviousDpiContext, "Ptr")
 }
 
 SCW_Reg(variable, value="") {

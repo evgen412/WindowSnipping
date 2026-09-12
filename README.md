@@ -9,6 +9,7 @@ Fork of [RaptorX/WindowSnipping](https://github.com/RaptorX/WindowSnipping), by 
 - Retain the original bitmap and source monitor DPI.
 - Redraw the complete screenshot at destination DPI / source DPI when dragging between monitors.
 - Use custom dragging to prevent clipped or incorrectly sized screenshot windows.
+- Keep the grabbed image point under the cursor when the screenshot changes scale between displays.
 
 The intended result is the same interface and text size as the original DPI-aware application moved to the destination display. Enlarging a raster screenshot cannot reproduce the sharpness of freshly rendered text.
 
@@ -25,7 +26,7 @@ Built-in updating is disabled: the update menu item and upstream download handle
 
 Compiled and launched with AutoHotkey v1.1.37.02. The user manually tested capture and cross-monitor dragging and confirmed the desired behavior. Other upstream features and all possible display layouts have not been comprehensively tested.
 
-Monitor selection uses the center of the screenshot. Selections spanning monitors use the DPI at the center of the selected area. DPI changes while the screenshot is stationary have not been validated.
+During dragging, the cursor selects the destination monitor and the grabbed image point stays under the cursor as the screenshot scales. Selections spanning monitors use the DPI at the center of the selected area. DPI changes while the screenshot is stationary have not been validated.
 
 ## Русский
 
