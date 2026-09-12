@@ -19,7 +19,7 @@ The intended result is the same interface and text size as the original DPI-awar
 3. Run the script on Windows 10/11; if necessary, explicitly open it with `AutoHotkeyU32.exe`.
 4. Configure shortcuts in the tray menu, capture a region and drag it to another monitor.
 
-The upstream **Check for Updates** command downloads the original application and may overwrite this fork's modifications. Get updates to this variant from this repository instead.
+Built-in updating is disabled: the update menu item and upstream download handler have been removed to protect this fork's modifications. Get updates manually from this repository.
 
 ## Validation
 
@@ -31,7 +31,7 @@ Monitor selection uses the center of the screenshot. Selections spanning monitor
 
 Исправление для мониторов с разным масштабом Windows. Снимок захватывается без уменьшения, а при переносе полностью перерисовывается под DPI другого экрана. Размер букв должен соответствовать оригинальному окну; при увеличении снимка резкость может быть ниже.
 
-Нужен AutoHotkey **v1**, 32-битный Unicode-интерпретатор. Скачайте ZIP этой ветки, сохраните папки `lib` и `res` и запустите `WindowSnipping.ahk`. Встроенная проверка обновлений относится к исходному приложению и может заменить исправленную версию.
+Нужен AutoHotkey **v1**, 32-битный Unicode-интерпретатор. Скачайте ZIP этой ветки, сохраните папки `lib` и `res` и запустите `WindowSnipping.ahk`. Встроенное обновление отключено: пункт меню и загрузчик оригинальной версии удалены. Новые версии этого форка устанавливаются вручную из данного репозитория.
 
 ## License
 

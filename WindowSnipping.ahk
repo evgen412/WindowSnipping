@@ -84,7 +84,6 @@ Menu, Tray, Add, Show Usage at Startup, ShowUsageSet
 Menu, Tray, % ShowUsage ? "Check" : "Uncheck", Show Usage at Startup
 Menu, Tray, Add
 Menu, Tray, Add, Clear Settings, ClearSettings
-Menu, Tray, Add, Check for Updates, Update
 Menu, Tray, Add, About, AboutGUI
 Menu, Tray, Add
 Menu, Tray, Add,Reload,Reload
@@ -1797,7 +1796,6 @@ ShowUsageGUI:
 							<li>Hotkeys (select the key combinations with the left mouse button)</li>
 							<li>Email signature (customizable Outlook signature)</li>
 							<li>About ( Links to website and <strong>donation</strong> button )</li>
-							<li>Check for updates (will look to see if there is a newer version of this program)</li>
 							<li>Exit app (Closes this program)</li>
 						</ol>
 				</ol>
@@ -1819,16 +1817,6 @@ AboutGUI:
 	script.about()
 return
 
-Update:
-	try
-		script.update("https://raw.githubusercontent.com/RaptorX/WindowSnipping/latest/ver"
-		             ,"https://github.com/RaptorX/WindowSnipping/releases/download/latest/WindowSnipping.zip")
-	catch e
-	{
-		if (e.code == 6)
-			msgbox % e.msg
-	}
-return
 
 SignatureGUI:
 	IniRead, currSig, % script.configfile, Email, signature
