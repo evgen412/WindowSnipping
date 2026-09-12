@@ -1,22 +1,42 @@
 ﻿#NoEnv
 #SingleInstance Force
-#Requires Autohotkey v1.1.36+ 32-bit Unicode
+#Requires Autohotkey v1.1.36+
+
+; Use physical pixels on each monitor. This keeps the selection and captured
+; bitmap at 1:1 when displays use different Windows scaling values.
+DllCall("User32\SetThreadDpiAwarenessContext", "Ptr", -3, "Ptr")
 ;--
-;@Ahk2Exe-SetVersion     1.57.14
+;@Ahk2Exe-SetVersion     1.57.12
+; @Ahk2Exe-SetMainIcon    res\main.ico
 ;@Ahk2Exe-SetProductName Window Snipping Tool
 ;@Ahk2Exe-SetDescription Allows to take quick screenshots and perform OCR with hotkeys
 /**
  * ============================================================================ *
  * Want a clear path for learning AutoHotkey?                                   *
- * Take a look at our AutoHotkey courses.                                 *
+ * Take a look at our AutoHotkey Udemy courses.                                 *
  * They're structured in a way to make learning AHK EASY                        *
- * Discover how easy AutoHotkey is here: https://the-Automator.com/Discover   *
+ * Right now you can  get a coupon code here: https://the-Automator.com/Learn   *
  * ============================================================================ *
  */
 
 #include <ScriptObj/ScriptObj>
 
-DllCall("SetThreadDpiAwarenessContext", "ptr", -3, "ptr")
+if ((A_PtrSize != 4 || !A_IsUnicode) && !A_IsCompiled)
+{
+	SplitPath, A_AhkPath,, ahkDir
+	if (!FileExist(correct := ahkDir "\AutoHotkeyU32.exe"))
+	{
+		MsgBox, % 0x10, "Error", "Could not find the 32bit unicode version of Autohotkey in:`n" correct
+		ExitApp
+	}
+	Run,"%correct%" "%A_ScriptName%",%A_ScriptDir%
+	ExitApp
+}
+else if A_IsCompiled && A_PtrSize = 8
+{
+	MsgBox, % "This program should be compiled in 32 Bit version of AHK"
+	ExitApp, 0
+}
 
 if (A_OSVersion ~= "10\.")
 	appdata := A_AppData "\" RegexReplace(A_ScriptName, "\.\w+"), isWin10 := true
@@ -25,7 +45,7 @@ else
 
 global script := {base         : script
                  ,name         : RegexReplace(A_ScriptName, "\.\w+")
-                 ,version      : "1.57.14"
+                 ,version      : "1.57.12"
                  ,author       : "Joe Glines"
                  ,email        : "joe@the-automator.com"
                  ,homepagetext : "www.the-automator.com/snip"
@@ -55,7 +75,6 @@ Menu, Tray, Icon, % script.iconfile
 IniRead, ShowUsage, % script.configfile, Settings, ShowUsage, % true
 IniRead, SWW,  % script.configfile, Settings, StartWithWindows
 
-Menu, Tray, Tip, Window Snipping Tool
 Menu, Tray, NoStandard ;removes default options
 Menu, Tray, Add	; to divide from standard menu, remove when above line is uncommented
 Menu, Tray, Add, Hotkeys, HotkeysGUI
@@ -123,7 +142,11 @@ SCW_DestroyAllClipWins() {
 	MaxGuis := SCW_Reg("MaxGuis"), StartAfter := SCW_Reg("StartAfter")
 	Loop, %MaxGuis%    {
 		StartAfter++
-		Gui %StartAfter%: Destroy
+		hwnd := SCW_Reg("G" StartAfter "#HWND")
+		if hwnd
+			SCW_DestroyClipWin(StartAfter, hwnd)
+		else
+			Gui %StartAfter%: Destroy
 	}
 }
 
@@ -152,13 +175,12 @@ SCW_SetUp(Options="") {
 	SCW_Reg("SelColor", SelColor), SCW_Reg("SelTrans",SelTrans)
 	SCW_Reg("WasSetUp", 1)
 	if AutoMonitorWM_LBUTTONDOWN
-	OnMessage(0x201, "SCW_LBUTTONDOWN")
+		OnMessage(0x201, "SCW_LBUTTONDOWN")
+	OnMessage(0x02E0, "SCW_DPICHANGED")
 }
 
 SCW_ScreenClip2Win(clip=0,email=0,OCR=0) {
 	static c
-	static MONITOR_DEFAULTTOPRIMARY := 0x00000001
-	static MONITOR_DEFAULTTONEAREST := 0x00000002
 	global defaultSignature, origText
 
 	if !(SCW_Reg("WasSetUp"))
@@ -178,38 +200,9 @@ SCW_ScreenClip2Win(clip=0,email=0,OCR=0) {
 	$hWin := WinExist()
 	; WinGetPos X, Y, Width, Height, ahk_id %hWin%
 
-	; we cannot get the activewindow does not deactive previous window
-	; MouseGetPos, ,, $Hwnd1 
-
-	; if !hMonPrimary := DllCall("MonitorFromWindow", "ptr", 0, "int", MONITOR_DEFAULTTOPRIMARY)
-	; 	Throw, Exception("couldnt get the monitor handle", A_ThisFunc)
-	; ; Get the scale factor for the primary monitor
-	; DllCall("Shcore.dll\GetScaleFactorForMonitor"
-	; 	, "ptr", hMonPrimary     ; [in]  HMONITOR            hMon,
-	; 	, "ptr*", pScalePrimary) ; [out] DEVICE_SCALE_FACTOR *pScale
-
-	; pScalePrimary /= (A_ScreenDPI / 96) * 100.0
-
-	; if !hMon := DllCall("MonitorFromWindow", "ptr", $hwnd1, "int", MONITOR_DEFAULTTONEAREST)
-	; 	Throw, Exception("couldnt get the monitor handle", A_ThisFunc, $hwnd1)
-	; ; Get the scale factor for the screenshot monitor
-	; DllCall("Shcore.dll\GetScaleFactorForMonitor"
-	; 	, "ptr", hMon     ; [in]  HMONITOR            hMon,
-	; 	, "ptr*", pScale) ; [out] DEVICE_SCALE_FACTOR *pScale
-
-	; pScale /= (A_ScreenDPI / 96) * 100.0
-
-	; ; ; Calculate the relative scale factor
-	; relativeScaleFactor := pScale / pScalePrimary
-
-	; Scale the coordinates using the relative scale factor
-	scaled_v1 := v1 ; * relativeScaleFactor
-	scaled_v2 := v2 ; * relativeScaleFactor
-	scaled_v3 := v3 ; * relativeScaleFactor
-	scaled_v4 := v4 ; * relativeScaleFactor
-
-	scaled_area := scaled_v1 "|" scaled_v2 "|" scaled_v3 "|" scaled_v4
-	; scaled_area := x "|" y "|" Width "|" Height
+	; Coordinates are already physical pixels in the per-monitor DPI context.
+	; Scaling them again made captures from a lower-DPI secondary display shrink.
+	scaled_area := Area
 	
 	if (v3 < 10 and v4 < 10)   ; too small area
 		return
@@ -326,8 +319,8 @@ SCW_ScreenClip2Win(clip=0,email=0,OCR=0) {
 	}
 
 	;*******************************************************
-	SCW_CreateLayeredWinMod(GuiNum,pBitmap,v1,v2, SCW_Reg("DrawCloseButton"))
-	Gdip_Shutdown("pToken")
+	ClipHwnd := SCW_CreateLayeredWinMod(GuiNum,pBitmap,v1,v2, SCW_Reg("DrawCloseButton"))
+	SCW_Reg("H" ClipHwnd "#GdipToken", pToken)
 	if (clip=1){
 		;********************** added to copy to clipboard by default*********************************
 		SCW_Win2Clipboard(0)  ;copies to clipboard by default w/o border
@@ -349,7 +342,11 @@ SCW_SelectAreaMod(Options="") {
 		}
 	}
 	c := (c = "") ? "Blue" : c, t := (t = "") ? "50" : t, g := (g = "") ? "99" : g
-	Gui %g%: Destroy
+	OldHwnd := SCW_Reg("G" g "#HWND")
+	if OldHwnd
+		SCW_DestroyClipWin(g, OldHwnd)
+	else
+		Gui %g%: Destroy
 	Gui %g%: +AlwaysOnTop -caption +Border +ToolWindow +LastFound -DPIScale ;provided from rommmcek 10/23/16
 
 
@@ -390,7 +387,6 @@ SCW_CreateLayeredWinMod(GuiNum,pBitmap,x,y,DrawCloseButton=0) {
 	G := Gdip_GraphicsFromHDC(hdc), Gdip_SetSmoothingMode(G, 4), Gdip_SetInterpolationMode(G, 7)
 
 	Gdip_DrawImage(G, pBitmap, 3, 3, Width, Height)
-	Gdip_DisposeImage(pBitmap)
 
 	pPen1 := Gdip_CreatePen("0x" BorderAColor, 3), pPen2 := Gdip_CreatePen("0x" BorderBColor, 1)
 	if DrawCloseButton {
@@ -403,23 +399,137 @@ SCW_CreateLayeredWinMod(GuiNum,pBitmap,x,y,DrawCloseButton=0) {
 
 	UpdateLayeredWindow(hwnd, hdc, x-3, y-3, Width+6, Height+6)
 	SelectObject(hdc, obm), DeleteObject(hbm), DeleteDC(hdc), Gdip_DeleteGraphics(G)
+	BaseDpi := SCW_GetDpiAtPoint(x + Width//2, y + Height//2)
+	if !BaseDpi
+		BaseDpi := 96
 	SCW_Reg("G" GuiNum "#HWND", hwnd)
 	SCW_Reg("G" GuiNum "#XClose", Width+6-CloseButton)
 	SCW_Reg("G" GuiNum "#YClose", CloseButton)
+	SCW_Reg("H" hwnd "#GuiNum", GuiNum)
+	SCW_Reg("H" hwnd "#Bitmap", pBitmap)
+	SCW_Reg("H" hwnd "#ImageWidth", Width)
+	SCW_Reg("H" hwnd "#ImageHeight", Height)
+	SCW_Reg("H" hwnd "#BaseDpi", BaseDpi)
+	SCW_Reg("H" hwnd "#Dpi", BaseDpi)
+	SCW_Reg("H" hwnd "#DrawCloseButton", DrawCloseButton)
+	SCW_Reg("H" hwnd "#Width", Width+6)
+	SCW_Reg("H" hwnd "#Height", Height+6)
 	Return hwnd
 }
 
+SCW_DPICHANGED(wParam, lParam, msg, hwnd) {
+	BaseDpi := SCW_Reg("H" hwnd "#BaseDpi")
+	if !BaseDpi
+		return
+
+	; The custom drag loop determines the target monitor itself and redraws the
+	; bitmap there. Block AutoHotkey/Windows from applying a second DPI resize.
+	return 1
+}
+
+SCW_GetDpiAtPoint(X, Y) {
+	VarSetCapacity(Point, 8, 0)
+	NumPut(X, Point, 0, "Int"), NumPut(Y, Point, 4, "Int")
+	hMonitor := DllCall("MonitorFromPoint", "Int64", NumGet(Point, 0, "Int64")
+		, "UInt", 2, "Ptr") ; MONITOR_DEFAULTTONEAREST
+	if !hMonitor
+		return 96
+
+	DpiX := 0, DpiY := 0
+	Result := DllCall("Shcore\GetDpiForMonitor", "Ptr", hMonitor, "Int", 0
+		, "UInt*", DpiX, "UInt*", DpiY, "UInt") ; MDT_EFFECTIVE_DPI
+	return Result ? 96 : DpiX
+}
+
+SCW_RenderLayeredWin(hwnd, X, Y, Dpi) {
+	static CloseButton := 16
+	pBitmap := SCW_Reg("H" hwnd "#Bitmap")
+	BaseDpi := SCW_Reg("H" hwnd "#BaseDpi")
+	BaseWidth := SCW_Reg("H" hwnd "#ImageWidth")
+	BaseHeight := SCW_Reg("H" hwnd "#ImageHeight")
+	if (!pBitmap || !BaseDpi || !BaseWidth || !BaseHeight)
+		return
+
+	Scale := Dpi / BaseDpi
+	ImageWidth := Round(BaseWidth * Scale)
+	ImageHeight := Round(BaseHeight * Scale)
+	Width := ImageWidth + 6
+	Height := ImageHeight + 6
+
+	hbm := CreateDIBSection(Width, Height), hdc := CreateCompatibleDC(), obm := SelectObject(hdc, hbm)
+	G := Gdip_GraphicsFromHDC(hdc), Gdip_SetSmoothingMode(G, 4), Gdip_SetInterpolationMode(G, 7)
+	Gdip_DrawImage(G, pBitmap, 3, 3, ImageWidth, ImageHeight)
+
+	BorderAColor := SCW_Reg("BorderAColor"), BorderBColor := SCW_Reg("BorderBColor")
+	pPen1 := Gdip_CreatePen("0x" BorderAColor, 3), pPen2 := Gdip_CreatePen("0x" BorderBColor, 1)
+	if SCW_Reg("H" hwnd "#DrawCloseButton") {
+		Gdip_DrawRectangle(G, pPen1, 1+ImageWidth-CloseButton+3, 1, CloseButton, CloseButton)
+		Gdip_DrawRectangle(G, pPen2, 1+ImageWidth-CloseButton+3, 1, CloseButton, CloseButton)
+	}
+	Gdip_DrawRectangle(G, pPen1, 1, 1, ImageWidth+3, ImageHeight+3)
+	Gdip_DrawRectangle(G, pPen2, 1, 1, ImageWidth+3, ImageHeight+3)
+	Gdip_DeletePen(pPen1), Gdip_DeletePen(pPen2)
+
+	UpdateLayeredWindow(hwnd, hdc, X, Y, Width, Height)
+	SelectObject(hdc, obm), DeleteObject(hbm), DeleteDC(hdc), Gdip_DeleteGraphics(G)
+
+	GuiNum := SCW_Reg("H" hwnd "#GuiNum")
+	SCW_Reg("G" GuiNum "#XClose", Width-CloseButton)
+	SCW_Reg("G" GuiNum "#YClose", CloseButton)
+	SCW_Reg("H" hwnd "#Width", Width)
+	SCW_Reg("H" hwnd "#Height", Height)
+	SCW_Reg("H" hwnd "#Dpi", Dpi)
+}
+
+SCW_DestroyClipWin(GuiNum, hwnd="") {
+	if !hwnd
+		hwnd := SCW_Reg("G" GuiNum "#HWND")
+	if hwnd {
+		pBitmap := SCW_Reg("H" hwnd "#Bitmap")
+		if pBitmap
+			Gdip_DisposeImage(pBitmap)
+		pToken := SCW_Reg("H" hwnd "#GdipToken")
+		if pToken
+			Gdip_Shutdown(pToken)
+		SCW_Reg("H" hwnd "#Bitmap", 0)
+		SCW_Reg("H" hwnd "#GdipToken", 0)
+	}
+	SCW_Reg("G" GuiNum "#HWND", 0)
+	Gui %GuiNum%: Destroy
+}
+
 SCW_LBUTTONDOWN() {
-	MouseGetPos,,, WinUMID
+	CoordMode, Mouse, Screen
+	MouseGetPos, MouseStartX, MouseStartY, WinUMID
 	WinGetTitle, Title, ahk_id %WinUMID%
 	if (Title = "ScreenClippingWindow") {
-		PostMessage, 0xA1, 2,,, ahk_id %WinUMID%
-		KeyWait, Lbutton
-		CoordMode, mouse, Relative
+		WinGetPos, WinStartX, WinStartY,,, ahk_id %WinUMID%
+		GuiNum := SCW_Reg("H" WinUMID "#GuiNum")
+
+		; Move the layered window ourselves instead of starting the Windows
+		; caption-drag loop. The system loop resizes this AHK GUI when it crosses
+		; onto a monitor with another DPI, while its bitmap surface stays unchanged.
+		while GetKeyState("LButton", "P") {
+			MouseGetPos, MouseX, MouseY
+			NewX := WinStartX + MouseX - MouseStartX
+			NewY := WinStartY + MouseY - MouseStartY
+			CurrentWidth := SCW_Reg("H" WinUMID "#Width")
+			CurrentHeight := SCW_Reg("H" WinUMID "#Height")
+			TargetDpi := SCW_GetDpiAtPoint(NewX + CurrentWidth//2, NewY + CurrentHeight//2)
+			if (TargetDpi != SCW_Reg("H" WinUMID "#Dpi"))
+				SCW_RenderLayeredWin(WinUMID, NewX, NewY, TargetDpi)
+			else
+				; SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE = 0x15.
+				DllCall("SetWindowPos", "Ptr", WinUMID, "Ptr", 0
+					, "Int", NewX, "Int", NewY, "Int", 0, "Int", 0, "UInt", 0x15)
+			Sleep, 10
+		}
+
+		CoordMode, Mouse, Relative
 		MouseGetPos, x,y
-	  XClose := SCW_Reg("G" A_Gui "#XClose"), YClose := SCW_Reg("G" A_Gui "#YClose")
+		XClose := SCW_Reg("G" GuiNum "#XClose"), YClose := SCW_Reg("G" GuiNum "#YClose")
 		if (x > XClose and y < YClose)
-		Gui %A_Gui%: Destroy
+			SCW_DestroyClipWin(GuiNum, WinUMID)
 		return 1   ; confirm that click was on module's screen clipping windows
 	}
 }

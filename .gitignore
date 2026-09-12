@@ -6,3 +6,5 @@ DrawArrow/
 *.exe
 *backup*
 example*
+*.bak*
+settings.ini
